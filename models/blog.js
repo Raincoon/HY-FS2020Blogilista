@@ -10,7 +10,7 @@ const blogSchema = mongoose.Schema({
     },
     author: {
         type: String,
-        default:"no author listed"
+        default: "no author listed"
     },
     url: {
         type: String,
@@ -19,9 +19,13 @@ const blogSchema = mongoose.Schema({
     likes: {
         type: Number,
         default: 0
+    },
+    user: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
     }
 })
-
+blogSchema.plugin(uniqueValidator)
 blogSchema.set('toJSON', {
     transform: (document, returnedObject) => {
         returnedObject.id = returnedObject._id.toString()
@@ -29,6 +33,5 @@ blogSchema.set('toJSON', {
         delete returnedObject.__v
     }
 })
-blogSchema.plugin(uniqueValidator)
 
 module.exports = mongoose.model('Blog', blogSchema)

@@ -7,9 +7,11 @@ if (process.env.NODE_ENV === 'test') {
 }
 
 let SECRET = process.env.SECRET
+let TEST_TOKEN = process.env.TEST_TOKEN
 
 module.exports = {
     MONGODB_URI,
     PORT,
-    SECRET
+    SECRET,
+    TEST_TOKEN
 }

@@ -1,17 +1,21 @@
 const mongoose = require('mongoose')
 const supertest = require('supertest')
+const config = require('../utils/config')
 const app = require('../app')
 const helper = require('./api_test_helper')
 const Blog = require('../models/blog')
 const api = supertest(app)
+
+var token = config.TEST_TOKEN
 
 beforeEach(async () => {
     await Blog.deleteMany({})
     await Blog.insertMany(helper.initialBlogs)
 })
 
-describe('bloglist tests', () => {
 
+
+describe('blogs basic functions', () => {
     test('blogs are returned as json', async () => {
         await api
             .get('/api/blogs')
@@ -32,6 +36,8 @@ describe('bloglist tests', () => {
 
         expect(res.body.id).toBeDefined()
     })
+})
+describe('blogs authorized user tests', () => {
 
     test('adding a valid blog entry works', async () => {
         const newBlog = {
@@ -40,12 +46,14 @@ describe('bloglist tests', () => {
             "author": "Robert C. Martin",
             "url": "http://blog.cleancoder.com/uncle-bob/2017/05/05/TestDefinitions.htmll",
             "likes": 10,
+            "user": "5e4adf006ebf3a0177fd152b",
             "__v": 0
         }
 
         await api
             .post('/api/blogs')
             .send(newBlog)
+            .set('Authorization', token)
             .expect(201)
             .expect('Content-Type', /application\/json/)
 
@@ -62,6 +70,7 @@ describe('bloglist tests', () => {
         await api
             .post('/api/blogs')
             .send(newBlog)
+            .set('Authorization', token)
             .expect(400)
 
         const numberOfBlogs = await helper.blogsInDb()
@@ -70,8 +79,9 @@ describe('bloglist tests', () => {
 
     test('deleting a blog works', async () => {
         await api
-        .delete('/api/blogs/5a422b3a1b54a676234d17f9')
-        .expect(204)
+            .delete('/api/blogs/5a422b3a1b54a676234d17f9')
+            .set('Authorization', token)
+            .expect(204)
 
         const numberOfBlogs = await helper.blogsInDb()
         expect(numberOfBlogs.length).toBe(helper.initialBlogs.length - 1)
@@ -85,12 +95,14 @@ describe('bloglist tests', () => {
             "author": "Robert C. Martin",
             "url": "http://blog.cleancoder.com/uncle-bob/2017/03/03/TDD-Harms-Architecture.html",
             "likes": 20,
+            "user": "5e4adf006ebf3a0177fd152b",
             "__v": 0
         }
 
         await api
             .put('/api/blogs/5a422ba71b54a676234d17fb')
             .send(newBlog)
+            .set('Authorization', token)
             .expect(200)
             .expect('Content-Type', /application\/json/)
 
@@ -99,7 +111,29 @@ describe('bloglist tests', () => {
         expect(editedBlog.body.likes).toBe(20)
     })
 
-    afterAll(() => {
-        mongoose.connection.close()
+})
+describe('blogs unauthorized user tests', () => {
+    test('adding a blog entry returns 401', async () => {
+        const newBlog = {
+            "_id": "5a422b891b54a676234d17fa",
+            "title": "First class tests",
+            "author": "Robert C. Martin",
+            "url": "http://blog.cleancoder.com/uncle-bob/2017/05/05/TestDefinitions.htmll",
+            "likes": 10,
+            "user": "5e4adf006ebf3a0177fd152b",
+            "__v": 0
+        }
+
+        await api
+            .post('/api/blogs')
+            .send(newBlog)
+            .expect(401)
+
+        const numberOfBlogs = await helper.blogsInDb()
+        expect(numberOfBlogs.length).toBe(helper.initialBlogs.length)
     })
+})
+
+afterAll(() => {
+    mongoose.connection.close()
 })

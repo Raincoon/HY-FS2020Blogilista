@@ -1,9 +1,12 @@
+const config = require('../utils/config')
 const blogRouter = require('express').Router()
 const Blog = require('../models/blog')
+const User = require('../models/user')
+const jwt = require('jsonwebtoken')
 
 // list all
 blogRouter.get('/', async (req, res) => {
-    const blogs = await Blog.find({})
+    const blogs = await Blog.find({}).populate('user', { username: 1, name: 1 })
 
     res.json(blogs)
 })
@@ -21,7 +24,18 @@ blogRouter.get('/:id', async (req, res) => {
 blogRouter.post('/', async (req, res) => {
     const blog = new Blog(req.body)
 
+    // get logged-in user id
+    const decodedToken = jwt.verify(req.token, config.SECRET)
+    if (!req.token || !decodedToken.id) {
+        return res.status(401).json({ error: 'token missing or invalid' })
+    }
+    const user = await User.findById(decodedToken.id)
+    blog.user = user._id
+
     const added = await blog.save()
+
+    user.blogs = user.blogs.concat(added._id)
+    await User.findByIdAndUpdate(decodedToken.id, user)
     res.status(201).json(added.toJSON())
 })
 
@@ -29,20 +43,56 @@ blogRouter.post('/', async (req, res) => {
 blogRouter.put('/:id', async (req, res) => {
     const newVer = new Blog(req.body)
 
-    const edited = await Blog.findByIdAndUpdate(req.params.id, newVer, { new: true })
+    // get logged-in user id
+    const decodedToken = jwt.verify(req.token, config.SECRET)
+    if (!req.token || !decodedToken.id) {
+        return res.status(401).json({ error: 'token missing or invalid' })
+    }
+    const user = await User.findById(decodedToken.id)
 
-    edited ?
-    res.json(edited.toJSON)
-    : res.status(404).end()
+    newVer.user = user._id
+    // find blog to edit
+    const found = await Blog.findById(req.params.id)
+
+    // if found and user is owner of blog, edit
+    if (found) {
+        if (found.user.toString() === user._id.toString()) {
+            const updated = await Blog.findByIdAndUpdate(found._id, newVer, { new: true })
+            res.status(200).json(updated.toJSON)
+        } else {
+            res.status(401).json({ error: 'user not owner of entry' })
+        }
+    } else {
+        res.status(404).end()
+    }
 })
 
 // remove
 blogRouter.delete('/:id', async (req, res) => {
-    const deleted = await Blog.findByIdAndRemove(req.params.id)
+    //const deleted = await Blog.findByIdAndRemove(req.params.id)
 
-    deleted ?
-        res.status(204).end()
-        : res.status(404).end()
+    // get logged-in user id
+    const decodedToken = jwt.verify(req.token, config.SECRET)
+    if (!req.token || !decodedToken.id) {
+        return res.status(401).json({ error: 'token missing or invalid' })
+    }
+    const user = await User.findById(decodedToken.id)
+
+    // find blog to remove
+    const found = await Blog.findById(req.params.id)
+
+    // if found and user is owner of blog, delete
+    if (found) {
+        if (found.user.toString() === user._id.toString()) {
+            // TODO: need to delete the array entry on User's side as well
+            await Blog.findByIdAndDelete(found._id)
+            res.status(204).end()
+        } else {
+            res.status(401).json({ error: 'user not owner of entry' })
+        }
+    } else {
+        res.status(404).end()
+    }
 })
 
 module.exports = blogRouter
