@@ -41,7 +41,7 @@ blogRouter.post('/', async (req, res) => {
 
 // edit
 blogRouter.put('/:id', async (req, res) => {
-    const newVer = new Blog(req.body)
+    const newVer = req.body
 
     // get logged-in user id
     const decodedToken = jwt.verify(req.token, config.SECRET)
@@ -56,12 +56,8 @@ blogRouter.put('/:id', async (req, res) => {
 
     // if found and user is owner of blog, edit
     if (found) {
-        if (found.user.toString() === user._id.toString()) {
-            const updated = await Blog.findByIdAndUpdate(found._id, newVer, { new: true })
-            res.status(200).json(updated.toJSON)
-        } else {
-            res.status(401).json({ error: 'user not owner of entry' })
-        }
+        const updated = await Blog.findByIdAndUpdate(req.params.id, newVer, { new: true })
+        res.status(200).json(updated.toJSON)
     } else {
         res.status(404).end()
     }
