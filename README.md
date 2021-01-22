@@ -1,2 +1,2 @@
 # HY-FS2020Blogilista
-Repository for returning schoolwork
+A bloglist project backend for school. Probably full of package security holes.
